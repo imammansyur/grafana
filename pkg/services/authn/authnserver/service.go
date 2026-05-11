@@ -2,6 +2,7 @@ package authnserver
 
 import (
 	"context"
+	"errors"
 
 	"go.opentelemetry.io/otel/attribute"
 	"k8s.io/apiserver/pkg/endpoints/request"
@@ -11,6 +12,8 @@ import (
 	"github.com/grafana/grafana/pkg/infra/log"
 	"github.com/grafana/grafana/pkg/infra/tracing"
 )
+
+var errExpectedNamespace = errors.New("expected namespace")
 
 // Client is the interface that MT auth clients implement.
 // This is the MT equivalent of authn.ContextAwareClient, but operating
@@ -52,10 +55,15 @@ func (s *Service) Authenticate(ctx context.Context, req *authnv1.AuthenticateReq
 	ctx, span := s.tracer.Start(ctx, "authnserver.Authenticate")
 	defer span.End()
 
-	if req != nil && req.Namespace != "" {
-		ctx = request.WithNamespace(ctx, req.Namespace)
-		span.SetAttributes(attribute.String("authn.namespace", req.Namespace))
+	if req == nil || req.Namespace == "" {
+		s.log.Error("Authenticate request error", "error", errExpectedNamespace)
+		return &authnv1.AuthenticateResponse{
+			Code: authnv1.AuthenticateCode_AUTHENTICATE_CODE_FAILED,
+		}, errExpectedNamespace
 	}
+
+	ctx = request.WithNamespace(ctx, req.Namespace)
+	span.SetAttributes(attribute.String("authn.namespace", req.Namespace))
 
 	for _, c := range s.clients {
 		if !c.Test(ctx, req) {
