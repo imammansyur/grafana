@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"go.opentelemetry.io/otel/attribute"
+	"k8s.io/apiserver/pkg/endpoints/request"
 
 	authnv1 "github.com/grafana/authlib/authn/proto/v1"
 
@@ -50,6 +51,11 @@ func (s *Service) RegisterClient(c Client) {
 func (s *Service) Authenticate(ctx context.Context, req *authnv1.AuthenticateRequest) (*authnv1.AuthenticateResponse, error) {
 	ctx, span := s.tracer.Start(ctx, "authnserver.Authenticate")
 	defer span.End()
+
+	if req != nil && req.Namespace != "" {
+		ctx = request.WithNamespace(ctx, req.Namespace)
+		span.SetAttributes(attribute.String("namespace", req.Namespace))
+	}
 
 	for _, c := range s.clients {
 		if !c.Test(ctx, req) {
