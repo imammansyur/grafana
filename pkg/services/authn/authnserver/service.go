@@ -54,7 +54,7 @@ func (s *Service) Authenticate(ctx context.Context, req *authnv1.AuthenticateReq
 
 	if req != nil && req.Namespace != "" {
 		ctx = request.WithNamespace(ctx, req.Namespace)
-		span.SetAttributes(attribute.String("namespace", req.Namespace))
+		span.SetAttributes(attribute.String("authn.namespace", req.Namespace))
 	}
 
 	for _, c := range s.clients {
